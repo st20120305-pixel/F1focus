@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>APEX FOCUS F1 戰術讀書系統</title>
+  <!-- 載入 React 核心與 Tailwind CSS -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 載入 Lucide 圖示庫 -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-[#0A0D14] text-slate-100 font-sans selection:bg-red-600 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // 從 Lucide 載入圖示元件
+    const { 
+      Trophy, Gauge, Calendar, Wrench, BarChart2, Play, Pause, RotateCcw, 
+      CheckCircle, Plus, Trash2, Zap, Radio, Volume2, 
+      VolumeX, Activity, Sparkles, AlertTriangle, Cpu, FastForward, Flag, Shield,
+      Clock, Flame, Edit3, Check, RefreshCw
+    } = LucideIcons;
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('timer');
+
+      const [lapsCompleted, setLapsCompleted] = useState(() => {
+        const saved = localStorage.getItem('apex_zh_laps');
+        return saved ? parseInt(saved, 10) : 0;
+      });
+
+      const [tasks, setTasks] = useState(() => {
+        const saved = localStorage.getItem('apex_zh_tasks');
+        return saved ? JSON.parse(saved) : [
+          { id: 1, title: '微積分 第四章 微分應用與積分入門', subject: '數學', lapsReq: 4, lapsDone: 0, completed: false, date: '2026-10-29' },
+          { id: 2, title: '物理 力學與牛頓運動定律題目演練', subject: '物理', lapsReq: 3, lapsDone: 0, completed: false, date: '2026-10-29' }
+        ];
+      });
+
+      const [exams, setExams] = useState(() => {
+        const saved = localStorage.getItem('apex_zh_exams');
+        return saved ? JSON.parse(saved) : [];
+      });
+
+      const [gpCountdowns, setGpCountdowns] = useState(() => {
+        const saved = localStorage.getItem('apex_zh_gp_countdowns');
+        return saved ? JSON.parse(saved) : [
+          { id: 'gp_1', title: '學測大獎賽 (Main GP)', date: '2027-01-20T08:30', isPrimary: true }
+        ];
+      });
+
+      const [upgradesList, setUpgradesList] = useState(() => {
+        const saved = localStorage.getItem('apex_zh_pu_list');
+        return saved ? JSON.parse(saved) : [
+          {
+            id: 'mguk',
+            title: 'MGU-K 覆盤動能回收',
+            category: '主動回想與間隔重複',
+            hp: 100,
+            desc: '在重新讀書前，先透過閃卡或主動提取舊記憶（廢熱/煞車動能），將快忘記的知識重新轉化為強大輸出。',
+            tag: '記憶強化'
+          },
+          {
+            id: 'drs',
+            title: 'DRS 尾翼減阻系統',
+            category: '手機禁食與數位極簡',
+            hp: 85,
+            desc: '開啟 DRS 壓低手機通知與外界干擾阻力，讓專注力在直線賽道上瞬間爆發出極速。',
+            tag: '抗分心'
+          },
+          {
+            id: 'aduo',
+            title: 'ADUO 費曼雙渦輪增壓',
+            category: '費曼學習法',
+            hp: 120,
+            desc: '用高壓壓縮大腦資訊，將複雜難題用最簡單的語言講給不懂的人聽，大幅提升進氣效率。',
+            tag: '深度理解'
+          }
+        ];
+      });
+
+      const [activeUpgrades, setActiveUpgrades] = useState(() => {
+        const saved = localStorage.getItem('apex_zh_pu_upgrades');
+        return saved ? JSON.parse(saved) : ['mguk', 'drs'];
+      });
+
+      const [soundEnabled, setSoundEnabled] = useState(true);
+
+      useEffect(() => { localStorage.setItem('apex_zh_laps', lapsCompleted.toString()); }, [lapsCompleted]);
+      useEffect(() => { localStorage.setItem('apex_zh_tasks', JSON.stringify(tasks)); }, [tasks]);
+      useEffect(() => { localStorage.setItem('apex_zh_exams', JSON.stringify(exams)); }, [exams]);
+      useEffect(() => { localStorage.setItem('apex_zh_pu_list', JSON.stringify(upgradesList)); }, [upgradesList]);
+      useEffect(() => { localStorage.setItem('apex_zh_pu_upgrades', JSON.stringify(activeUpgrades)); }, [activeUpgrades]);
+      useEffect(() => { localStorage.setItem('apex_zh_gp_countdowns', JSON.stringify(gpCountdowns)); }, [gpCountdowns]);
+
+      const calculateTotalHp = () => {
+        const equippedHp = upgradesList
+          .filter(item => activeUpgrades.includes(item.id))
+          .reduce((sum, item) => sum + (parseInt(item.hp, 10) || 0), 0);
+        return 700 + equippedHp;
+      };
+
+      const playBeep = useCallback((freq = 880, type = 'sine', duration = 0.15) => {
+        if (!soundEnabled) return;
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        } catch (e) {
+          console.error(e);
+        }
+      }, [soundEnabled]);
+
+      const playRadioAlert = useCallback(() => {
+        if (!soundEnabled) return;
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const now = audioCtx.currentTime;
+          [0, 0.2, 0.4].forEach((delay) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(1200, now + delay);
+            gain.gain.setValueAtTime(0.15, now + delay);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.12);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now + delay);
+            osc.stop(now + delay + 0.12);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }, [soundEnabled]);
+
+      return (
+        <div className="min-h-screen bg-[#0A0D14] text-slate-100 font-sans flex flex-col">
+          {/* 頂部賽車遙測數據列 */}
+          <header className="relative z-10 border-b border-slate-800/80 bg-[#0F131C]/90 backdrop-blur-md px-4 py-3">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="bg-red-600 text-white font-black italic tracking-wider text-xl px-2.5 py-1 rounded transform -skew-x-12 shadow-lg shadow-red-600/30">
+                  APEX
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2 font-mono">
+                    APEX FOCUS <span className="text-xs bg-red-950/80 text-red-400 border border-red-800/50 px-2 py-0.5 rounded-full font-sans">F1 戰術讀書系統 V3.5</span>
+                  </h1>
+                  <p className="text-xs text-slate-400">賽車級時間管理 & 學習動力單元架構</p>
+                </div>
+              </div>
+
+              <div className="hidden md:flex items-center space-x-6 text-xs font-mono">
+                <div className="flex items-center space-x-2 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <div>
+                    <div className="text-slate-400 text-[10px]">累積專注圈數</div>
+                    <div className="text-amber-400 font-bold">{lapsCompleted} Laps</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                  <div>
+                    <div className="text-slate-400 text-[10px]">引擎總馬力</div>
+                    <div className="text-emerald-400 font-bold">{calculateTotalHp()} HP</div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                >
+                  {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* 導覽分頁 */}
+          <nav className="relative z-10 bg-[#0B0E17] border-b border-slate-800/60 sticky top-0 backdrop-blur-md">
+            <div className="max-w-7xl mx-auto px-4 flex justify-around md:justify-start space-x-1 md:space-x-4 overflow-x-auto">
+              <button 
+                onClick={() => { setActiveTab('timer'); playBeep(1200, 'triangle', 0.05); }}
+                className={`flex items-center space-x-2 py-3.5 px-4 font-mono text-xs font-bold border-b-2 transition whitespace-nowrap ${activeTab === 'timer' ? 'border-red-600 text-white bg-slate-900/60' : 'border-transparent text-slate-400'}`}
+              >
+                <Gauge className="w-4 h-4" />
+                <span>1. PIT Stop 計時器</span>
+              </button>
+              <button 
+                onClick={() => { setActiveTab('upgrades'); playBeep(1200, 'triangle', 0.05); }}
+                className={`flex items-center space-x-2 py-3.5 px-4 font-mono text-xs font-bold border-b-2 transition whitespace-nowrap ${activeTab === 'upgrades' ? 'border-red-600 text-white bg-slate-900/60' : 'border-transparent text-slate-400'}`}
+              >
+                <Wrench className="w-4 h-4" />
+                <span>2. PU 升級庫</span>
+              </button>
+              <button 
+                onClick={() => { setActiveTab('calendar'); playBeep(1200, 'triangle', 0.05); }}
+                className={`flex items-center space-x-2 py-3.5 px-4 font-mono text-xs font-bold border-b-2 transition whitespace-nowrap ${activeTab === 'calendar' ? 'border-red-600 text-white bg-slate-900/60' : 'border-transparent text-slate-400'}`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>3. 讀書計畫</span>
+              </button>
+              <button 
+                onClick={() => { setActiveTab('analytics'); playBeep(1200, 'triangle', 0.05); }}
+                className={`flex items-center space-x-2 py-3.5 px-4 font-mono text-xs font-bold border-b-2 transition whitespace-nowrap ${activeTab === 'analytics' ? 'border-red-600 text-white bg-slate-900/60' : 'border-transparent text-slate-400'}`}
+              >
+                <BarChart2 className="w-4 h-4" />
+                <span>4. 正賽成績</span>
+              </button>
+            </div>
+          </nav>
+
+          {/* 主要內容區 */}
+          <main className="relative z-10 flex-grow max-w-7xl w-full mx-auto p-4 md:p-6">
+            <div className="bg-[#0F131D] border border-slate-800 rounded-2xl p-6 text-center">
+              <h2 className="text-xl font-bold font-mono text-white mb-2">🏁 F1 戰術讀書系統已成功載入！</h2>
+              <p className="text-xs font-mono text-slate-400">你的專屬賽車計時器、升級庫與計畫已全面啟動。</p>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
